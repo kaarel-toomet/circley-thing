@@ -3,6 +3,7 @@ import random as r
 import sys
 pg.init()
 pg.mixer.init()
+pop = pg.mixer.Sound("pop.wav")
 pic = pg.image.load("trollface.png")
 pg.font
 screen = pg.display.set_mode((0,0), pg.RESIZABLE)
@@ -21,7 +22,7 @@ mleft = False
 mright = False
 timer = pg.time.Clock()
 lifes = 5
-pickiness = 42
+pickiness = 192
 font = pg.font.SysFont("Times", 24)
 dfont = pg.font.SysFont("Times", 32)
 pfont = pg.font.SysFont("Times", 50)
@@ -61,7 +62,7 @@ class Player(pg.sprite.Sprite):
         if mright and right:
             self.rect.x += dist
 class Disc(pg.sprite.GroupSingle):
-    def __init__(self, x, y, xvel, yvel,r,g,b,wr,wg,wb,pickiness=pickiness):
+    def __init__(self, x, y, xvel, yvel, r, g, b, wr, wg, wb, umtick = 0):
         d = pg.sprite.Sprite()
         pg.sprite.GroupSingle.__init__(self, d)
         self.x = x
@@ -76,6 +77,7 @@ class Disc(pg.sprite.GroupSingle):
         self.wb = wb
         self.pickiness = pickiness
         self.sprite.rect = pg.rect.Rect(x,y,20,20)
+        self.umtick = umtick
     def update(self):
         if self.x + self.xvel <= screenw-90 and self.x + self.xvel >= 0:
             self.x += self.xvel
@@ -88,8 +90,30 @@ class Disc(pg.sprite.GroupSingle):
         else:
             self.yvel = -self.yvel
         self.sprite.rect = pg.rect.Rect(self.x,self.y,20,20)
+        if self.umtick > 0:
+            self.umtick -= 1
     def drw(self):
-        pg.draw.circle(screen,(self.r,self.g,self.b),(self.x,self.y),20)
+        pg.draw.circle(screen,(round(self.r),round(self.g),round(self.b)),(self.x,self.y),20)
+    def getumt(self):
+        return self.umtick
+    def addumt(self,addedticks):
+        self.umtick += addedticks
+    def gclrwclr(self):
+        return [self.r,self.g,self.b,self.wr,self.wg,self.wb]
+    def aclrwclr(self,m8clrs):
+        self.r = (self.r+m8clrs[0])/2
+        self.g = (self.g+m8clrs[1])/2
+        self.b = (self.b+m8clrs[2])/2
+        self.wr = (self.wr+m8clrs[3])/2
+        self.wg = (self.wg+m8clrs[4])/2
+        self.wb = (self.wb+m8clrs[5])/2
+    def mutate(self,amount):
+        self.r += round(r.normalvariate(0,amount))
+        self.g += round(r.normalvariate(0,amount))
+        self.b += round(r.normalvariate(0,amount))
+        self.wr += round(r.normalvariate(0,amount))
+        self.wg += round(r.normalvariate(0,amount))
+        self.wb += round(r.normalvariate(0,amount))
 def reset():
     lifes = 5
     #player.empty()
@@ -102,7 +126,7 @@ discs = [ Disc(r.randint(100,screenw-190),r.randint(100,screenh-190),
                r.randint(-10,10),r.randint(-10,10),
                r.randint(0,255),r.randint(0,255),r.randint(0,255),
                r.randint(0,255),r.randint(0,255),r.randint(0,255))
-            for i in range(5)]
+            for i in range(42)]
 
 while do:
     for event in pg.event.get():
@@ -167,15 +191,50 @@ while do:
                     reset()
     for i1, disc1 in enumerate(discs):
         for i2, disc2 in enumerate(discs):
-            if disc1 is disc2:
-                #print("slef", i1, i2)
+            if i2 <= i1:
                 continue
             col = pg.sprite.spritecollide(disc1.sprite,disc2,False)
-            #print(disc1,disc2, i1, i2)
-            #print(col)
-            if len(col) > 0:
-                print(disc1.x, disc2.x)
-                #sys.exit(0)
+            if len(col) > 0:# and disc1.getumt() == 0 and disc2.getumt() == 0:
+                disc1.addumt(60)
+                disc2.addumt(60)
+                d1c = disc1.gclrwclr()
+                d2c = disc2.gclrwclr()
+                m81r = False
+                m81g = False
+                m81b = False
+                m82r = False
+                m82g = False
+                m82b = False
+                for ir1 in range(round(d1c[0]-pickiness),round(d1c[0]+pickiness)):
+                    if ir1 == d2c[3]:
+                        m82r = True
+                        break
+                for ig1 in range(round(d1c[1]-pickiness),round(d1c[1]+pickiness)):
+                    if ig1 == d2c[4]:
+                        m82g = True
+                        break
+                for ib1 in range(round(d1c[2]-pickiness),round(d1c[2]+pickiness)):
+                    if ib1 == d2c[5]:
+                        m82b = True
+                        break
+                for ir2 in range(round(d2c[0]-pickiness),round(d2c[0]+pickiness)):
+                    if ir2 == d1c[3]:
+                        m81r = True
+                        break
+                for ig2 in range(round(d2c[1]-pickiness),round(d2c[1]+pickiness)):
+                    if ig2 == d1c[4]:
+                        m81g = True
+                        break
+                for ib2 in range(round(d2c[2]-pickiness),round(d2c[2]+pickiness)):
+                    if ib2 == d1c[5]:
+                        m81b = True
+                        break
+                if m81r and m81g and m81b and m82r and m82g and m82b:
+                    disc1.aclrwclr(d2c)
+                    disc2.aclrwclr(d1c)
+                    disc1.mutate(10)
+                    disc2.mutate(10)
+                    pop.play()
     screen.fill((128,128,128))
     score = ("Lifes: " + str(lifes))
     text = font.render(score, True, (255,255,255))
@@ -189,6 +248,6 @@ while do:
     player.update(mup, mdown, mleft, mright)
     player.draw(screen)
     pg.display.update()
-    timer.tick(60)
+    #timer.tick(60)
 
 pg.quit()
